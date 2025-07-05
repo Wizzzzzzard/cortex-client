@@ -4,7 +4,7 @@ set -e
 
 PROM1_PORT=9090
 PROM2_PORT=9091
-PROM_IMAGE="prom/prometheus:latest"
+PROM_IMAGE="prom/prometheus:main"
 
 start() {
 	echo "Starting Prometheus instance 1 in Docker on port $PROM1_PORT..."

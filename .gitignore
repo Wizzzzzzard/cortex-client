@@ -1,0 +1,51 @@
+# Binaries and build output
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go workspace and modules
+bin/
+vendor/
+Gopkg.lock
+Gopkg.toml
+
+# Dependency directories (remove the comment below if you use Go modules)
+# /vendor/
+
+# IDE/editor files
+.idea/
+.vscode/
+*.swp
+*~
+
+# Logs and temp files
+*.log
+*.tmp
+*.pid
+*.cid
+
+# Prometheus and test artifacts
+prometheus1/
+prometheus2/
+prometheus-bin/
+prometheus.tar.gz
+prometheus
+backends.yaml
+
+# Docker
+*.cid
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Test output
+coverage.out
+
+# Python (if any)
+__pycache__/
+*.pyc
