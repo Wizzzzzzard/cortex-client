@@ -2,7 +2,7 @@ package tests
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os/exec"
 	"testing"
@@ -14,40 +14,39 @@ type TargetsResponse struct {
 }
 
 func TestPrometheusAPI(t *testing.T) {
-	promPath := "../prometheus"
-	configs := []struct {
-		configPath string
-		dataPath   string
-		port       string
-	}{
-		{"../prometheus1/prometheus.yml", "../prometheus1/data", "9090"},
-		{"../prometheus2/prometheus.yml", "../prometheus2/data", "9091"},
+	// Check if containers are already running
+	checkCmd := exec.Command("docker", "ps", "--filter", "ancestor=prom/prometheus:main", "--format", "{{.ID}}")
+	output, err := checkCmd.Output()
+	alreadyRunning := false
+	if err == nil && len(output) > 0 {
+		alreadyRunning = true
 	}
 
-	cmds := make([]*exec.Cmd, 0, len(configs))
-	for _, c := range configs {
-		cmd := exec.Command(promPath,
-			"--config.file="+c.configPath,
-			"--storage.tsdb.path="+c.dataPath,
-			"--web.listen-address=:"+c.port,
-		)
-		cmd.Stdout = ioutil.Discard
-		cmd.Stderr = ioutil.Discard
-		if err := cmd.Start(); err != nil {
-			t.Fatalf("failed to start prometheus on port %s: %v", c.port, err)
+	if !alreadyRunning {
+		startCmd := exec.Command("../start-prometheus.sh", "start")
+		startCmd.Stdout = io.Discard
+		startCmd.Stderr = io.Discard
+		if err := startCmd.Run(); err != nil {
+			t.Fatalf("failed to start prometheus containers: %v", err)
 		}
-		cmds = append(cmds, cmd)
-		defer cmd.Process.Kill()
+		// Ensure cleanup only if we started them
+		defer func() {
+			stopCmd := exec.Command("../start-prometheus.sh", "stop")
+			stopCmd.Stdout = io.Discard
+			stopCmd.Stderr = io.Discard
+			_ = stopCmd.Run()
+		}()
 	}
 
-	for _, c := range configs {
+	ports := []string{"9090", "9091"}
+	for _, port := range ports {
 		ready := false
 		for i := 0; i < 20; i++ {
-			resp, err := http.Get("http://localhost:" + c.port + "/api/v1/targets")
+			resp, err := http.Get("http://localhost:" + port + "/api/v1/targets")
 			if err == nil && resp.StatusCode == 200 {
-				body, _ := ioutil.ReadAll(resp.Body)
+				body, _ := io.ReadAll(resp.Body)
 				resp.Body.Close()
-				t.Logf("Prometheus API response on port %s: %s", c.port, string(body))
+				t.Logf("Prometheus API response on port %s: %s", port, string(body))
 				var tr TargetsResponse
 				json.Unmarshal(body, &tr)
 				if tr.Status == "success" {
@@ -58,7 +57,7 @@ func TestPrometheusAPI(t *testing.T) {
 			time.Sleep(500 * time.Millisecond)
 		}
 		if !ready {
-			t.Fatalf("Prometheus API did not become ready in time on port %s", c.port)
+			t.Fatalf("Prometheus API did not become ready in time on port %s", port)
 		}
 	}
 }
