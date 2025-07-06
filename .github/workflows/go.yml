@@ -36,3 +36,6 @@ jobs:
         uses: dominikh/staticcheck-action@v1.3.1
         with:
           install-go: false
+
+      - name: Coverage
+        run: go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out
