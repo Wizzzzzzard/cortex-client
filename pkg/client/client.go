@@ -20,7 +20,12 @@ func QueryPrometheus(backendURL, query string) (*PrometheusResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			// Optionally log or handle the error, e.g.:
+			fmt.Printf("error closing response body: %v\n", cerr)
+		}
+	}()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err

@@ -26,6 +26,11 @@ func readBackendsFile(path string) ([]string, error) {
 
 // RunCLI runs the main CLI logic, returns exit code
 func RunCLI(args []string) int {
+	return RunCLIWithMergeFunc(args, client.MergePrometheusQueries)
+}
+
+// RunCLIWithMergeFunc allows injecting a merge function for testing
+func RunCLIWithMergeFunc(args []string, mergeFunc func([]string, string) ([]byte, error)) int {
 	flags := flag.NewFlagSet("cortex-client", flag.ContinueOnError)
 	backends := flags.String("backends", "", "Comma-separated list of Prometheus backend URLs")
 	backendsFile := flags.String("backends-file", "", "Path to file with Prometheus backend URLs (one per line)")
@@ -55,7 +60,7 @@ func RunCLI(args []string) int {
 		return 1
 	}
 
-	b, err := client.MergePrometheusQueries(backendList, *query)
+	b, err := mergeFunc(backendList, *query)
 	if err != nil {
 		fmt.Printf("Error merging queries: %v\n", err)
 		return 1
