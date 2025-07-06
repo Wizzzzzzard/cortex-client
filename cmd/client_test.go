@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"io"
+	"log"
 	"os"
 	"strings"
 	"testing"
@@ -66,17 +67,31 @@ func captureOutput(f func()) (string, string) {
 	errC := make(chan string)
 	go func() {
 		var buf bytes.Buffer
-		io.Copy(&buf, rOut)
+		_, err := io.Copy(&buf, rOut)
+		if err != nil {
+			log.Fatalf("failed to read stdout: %v", err)
+		}
 		outC <- buf.String()
 	}()
 	go func() {
 		var buf bytes.Buffer
-		io.Copy(&buf, rErr)
+		_, err := io.Copy(&buf, rErr)
+		if err != nil {
+			log.Fatalf("failed to read stderr: %v", err)
+		}
 		errC <- buf.String()
 	}()
 	f()
-	wOut.Close()
-	wErr.Close()
+	defer func() {
+		if closeErr := wOut.Close(); closeErr != nil {
+			log.Fatalf("failed to close stdout: %v", closeErr)
+		}
+	}()
+	defer func() {
+		if closeErr := wErr.Close(); closeErr != nil {
+			log.Fatalf("failed to close stderr: %v", closeErr)
+		}
+	}()
 	out, err := <-outC, <-errC
 	return out, err
 }
