@@ -28,7 +28,7 @@ func DoWork(r RateLimiter, workerCount int) {
 	}
 
 	// Spin up a 10 workers that need a rate limit resource
-	for i := 0; i < workerCount; i++ {
+	for i := range workerCount {
 		wg.Add(1)
 		go doWork(i)
 	}
