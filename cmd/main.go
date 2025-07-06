@@ -6,23 +6,7 @@ import (
 	"os"
 
 	"github.com/cortex-client/pkg/client"
-	"gopkg.in/yaml.v3"
 )
-
-// readBackendsFile reads a YAML file with prometheus_backends as a list
-func readBackendsFile(path string) ([]string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var parsed struct {
-		PrometheusBackends []string `yaml:"prometheus_backends"`
-	}
-	if err := yaml.Unmarshal(data, &parsed); err != nil {
-		return nil, err
-	}
-	return parsed.PrometheusBackends, nil
-}
 
 // RunCLI runs the main CLI logic, returns exit code
 func RunCLI(args []string) int {
@@ -47,7 +31,7 @@ func RunCLIWithMergeFunc(args []string, mergeFunc func([]string, string) ([]byte
 	}
 
 	if *backendsFile != "" {
-		fileBackends, err := readBackendsFile(*backendsFile)
+		fileBackends, err := client.ReadBackendFile(*backendsFile)
 		if err != nil {
 			fmt.Printf("Error reading backends file: %v\n", err)
 			return 1

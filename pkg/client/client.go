@@ -5,12 +5,30 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
 type PrometheusResponse struct {
 	Status string          `json:"status"`
 	Data   json.RawMessage `json:"data"`
+}
+
+// ReadBackendFile reads a YAML file with prometheus_backends as a list
+func ReadBackendFile(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var parsed struct {
+		PrometheusBackends []string `yaml:"prometheus_backends"`
+	}
+	if err := yaml.Unmarshal(data, &parsed); err != nil {
+		return nil, err
+	}
+	return parsed.PrometheusBackends, nil
 }
 
 // QueryPrometheus queries a single Prometheus backend

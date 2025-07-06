@@ -3,25 +3,36 @@ package main
 import (
 	"bytes"
 	"io"
+	"log"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/cortex-client/pkg/client"
 )
 
 func TestReadBackendsFile(t *testing.T) {
 	// Create a temp YAML file
-	f, err := os.CreateTemp("", "backends-*.yaml")
+	file, err := os.CreateTemp("", "backends-*.yaml")
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(f.Name())
+	defer func() {
+		if removeErr := os.Remove(file.Name()); removeErr != nil {
+			t.Fatalf("failed to remove temp file: %v", removeErr)
+		}
+	}()
 	content := []byte("prometheus_backends:\n  - http://localhost:9090\n  - http://localhost:9091\n")
-	if _, err := f.Write(content); err != nil {
+	if _, err := file.Write(content); err != nil {
 		t.Fatalf("failed to write temp file: %v", err)
 	}
-	f.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			t.Fatalf("failed to close temp file: %v", closeErr)
+		}
+	}()
 
-	backends, err := readBackendsFile(f.Name())
+	backends, err := client.ReadBackendFile(file.Name())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -30,8 +41,8 @@ func TestReadBackendsFile(t *testing.T) {
 	}
 }
 
-func TestReadBackendsFile_Error(t *testing.T) {
-	_, err := readBackendsFile("nonexistent.yaml")
+func TestReadBackendFile_Error(t *testing.T) {
+	_, err := client.ReadBackendFile("nonexistent.yaml")
 	if err == nil {
 		t.Error("expected error for nonexistent file, got nil")
 	}
@@ -56,10 +67,31 @@ func captureOutput(f func()) (string, string) {
 	}()
 	outC := make(chan string)
 	errC := make(chan string)
-	go func() { var buf bytes.Buffer; io.Copy(&buf, rOut); outC <- buf.String() }()
-	go func() { var buf bytes.Buffer; io.Copy(&buf, rErr); errC <- buf.String() }()
+	go func() {
+		var buf bytes.Buffer
+		_, err := io.Copy(&buf, rOut)
+		if err != nil {
+			log.Fatalf("failed to read stdout: %v", err)
+		}
+		outC <- buf.String()
+	}()
+	go func() {
+		var buf bytes.Buffer
+		_, err := io.Copy(&buf, rErr)
+		if err != nil {
+			log.Fatalf("failed to read stderr: %v", err)
+		}
+		errC <- buf.String()
+	}()
 	f()
-	wOut.Close(); wErr.Close()
+	closeWoutErr := wOut.Close()
+	if closeWoutErr != nil {
+		log.Fatalf("failed to close stdout: %v", closeWoutErr)
+	}
+	closeWerrErr := wErr.Close()
+	if closeWerrErr != nil {
+		log.Fatalf("failed to close stderr: %v", closeWerrErr)
+	}
 	out, err := <-outC, <-errC
 	return out, err
 }
@@ -101,18 +133,26 @@ func TestRunCLI_ValidBackendsFlag(t *testing.T) {
 }
 
 func TestRunCLI_ValidBackendsFile(t *testing.T) {
-	f, err := os.CreateTemp("", "backends-*.yaml")
+	file, err := os.CreateTemp("", "backends-*.yaml")
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(f.Name())
+	defer func() {
+		if removeErr := os.Remove(file.Name()); removeErr != nil {
+			t.Fatalf("failed to remove temp file: %v", removeErr)
+		}
+	}()
 	content := []byte("prometheus_backends:\n  - http://localhost:9090\n")
-	if _, err := f.Write(content); err != nil {
+	if _, err := file.Write(content); err != nil {
 		t.Fatalf("failed to write temp file: %v", err)
 	}
-	f.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			t.Fatalf("failed to close temp file: %v", closeErr)
+		}
+	}()
 	out, _ := captureOutput(func() {
-		code := RunCLIWithMergeFunc([]string{"--backends-file=" + f.Name(), "--query=up"}, stubMergePrometheusQueries("{\"status\":\"success\"}", nil))
+		code := RunCLIWithMergeFunc([]string{"--backends-file=" + file.Name(), "--query=up"}, stubMergePrometheusQueries("{\"status\":\"success\"}", nil))
 		if code != 0 {
 			t.Errorf("expected exit code 0, got %d", code)
 		}
