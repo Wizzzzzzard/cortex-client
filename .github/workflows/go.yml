@@ -3,26 +3,41 @@
 
 name: Go
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+on: ["push", "pull_request"]
 
 jobs:
-
-  build:
-    runs-on: ubuntu-latest
-    steps:
+  name: "Build and Test"
+  strategy:
+    matrix:
+      go-version: [1.24.4]
+  runs-on: ubuntu-latest
+  steps:
     - uses: actions/checkout@v4
 
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.24.4'
+        go-version: ${{ matrix.go }}
+
+
+    - name: Install dependencies
+      run: go get .
+
+    - name: Verify dependencies
+      run: go mod verify
 
     - name: Build
       run: go build -v ./...
 
     - name: Test
       run: go test -v ./...
+
+    - name: Vet
+      run: go vet ./...
+
+    - name: staticcheck
+      uses: dominikh/staticcheck-action@v1.2.0
+      with:
+        version: "2022.1.1"
+        install-go: false
+        cache-key: ${{ matrix.go }}
