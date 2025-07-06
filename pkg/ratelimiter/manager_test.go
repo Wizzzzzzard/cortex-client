@@ -1,22 +1,9 @@
-package client
+package ratelimiter
 
 import (
 	"testing"
 	"time"
 )
-
-func TestNewTokenGeneratesNewToken(t *testing.T) {
-	token := NewToken()
-	if token == nil {
-		t.Fatal("expected a new token, got nil")
-	}
-	if token.ID == "" {
-		t.Fatal("expected a non-empty token ID")
-	}
-	if token.CreatedAt.IsZero() {
-		t.Fatal("expected a valid creation time, got zero value")
-	}
-}
 
 func TestNewManagerWithConfig(t *testing.T) {
 	conf := &Config{
@@ -265,95 +252,5 @@ func TestManagerReleasesToken(t *testing.T) {
 	}
 	if _, exists := m.activeTokens[token.ID]; exists {
 		t.Fatalf("expected token with ID %s to be removed from active tokens, but it still exists", token.ID)
-	}
-}
-
-func TestGenerateNewMaxConcurrencyRateLimiter(t *testing.T) {
-	conf := &Config{
-		Limit:            3,
-		Throttle:         10 * time.Millisecond,
-		TokenResetsAfter: 0, // No reset for this test
-	}
-
-	rl, err := NewMaxConcurrencyRateLimiter(conf)
-	if rl == nil {
-		t.Fatal("expected a new Manager instance, got nil")
-	}
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-}
-
-func TestMaxConcurrencyRateLimiterAcquiresTokens(t *testing.T) {
-	conf := &Config{
-		Limit:            2,
-		Throttle:         10 * time.Millisecond,
-		TokenResetsAfter: 0, // No reset for this test
-	}
-
-	rl, err := NewMaxConcurrencyRateLimiter(conf)
-	if rl == nil {
-		t.Fatal("expected a new Manager instance, got nil")
-	}
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-
-	token1, err := rl.Acquire()
-	if err != nil {
-		t.Fatalf("expected to acquire token, got error: %v", err)
-	}
-	if token1 == nil {
-		t.Fatal("expected a valid token, got nil")
-	}
-
-	token2, err := rl.Acquire()
-	if err != nil {
-		t.Fatalf("expected to acquire second token, got error: %v", err)
-	}
-	if token2 == nil {
-		t.Fatal("expected a valid second token, got nil")
-	}
-}
-
-func TestMaxConcurrencyRateLimiterAcquiresTokensAfterRelease(t *testing.T) {
-	conf := &Config{
-		Limit:            2,
-		Throttle:         10 * time.Millisecond,
-		TokenResetsAfter: 0, // No reset for this test
-	}
-
-	rl, err := NewMaxConcurrencyRateLimiter(conf)
-	if rl == nil {
-		t.Fatal("expected a new Manager instance, got nil")
-	}
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-
-	token1, err := rl.Acquire()
-	if err != nil {
-		t.Fatalf("expected to acquire token, got error: %v", err)
-	}
-	if token1 == nil {
-		t.Fatal("expected a valid token, got nil")
-	}
-
-	token2, err := rl.Acquire()
-	if err != nil {
-		t.Fatalf("expected to acquire second token, got error: %v", err)
-	}
-	if token2 == nil {
-		t.Fatal("expected a valid second token, got nil")
-	}
-
-	rl.Release(token2)
-
-	token3, err := rl.Acquire()
-	if err != nil {
-		t.Fatalf("expected to acquire third token, got error: %v", err)
-	}
-	if token3 == nil {
-		t.Fatal("expected a valid third token, got nil")
 	}
 }

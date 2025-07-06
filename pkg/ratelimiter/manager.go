@@ -1,55 +1,16 @@
-package client
+package ratelimiter
 
 import (
-	"fmt"
 	"log"
 	"sync/atomic"
 	"time"
-
-	"github.com/segmentio/ksuid"
 )
 
-var ErrTokenFactoryNotDefined = fmt.Errorf("token factory not defined")
-var ErrInvalidLimit = fmt.Errorf("invalid limit, must be greater than zero")
+// MaxUint holds the maximum unsigned int value
+const MaxUint = ^uint(0)
 
-// token factory function creates a new token
-type tokenFactory func() *Token
-
-// Token represents a Rate Limit Token
-type Token struct {
-	// The unique token ID
-	ID string
-
-	// The time at which the token was created
-	CreatedAt time.Time
-}
-
-// NewToken creates a new token
-func NewToken() *Token {
-	return &Token{
-		ID:        ksuid.New().String(),
-		CreatedAt: time.Now().UTC(),
-	}
-}
-
-func (t *Token) NeedReset(resetAfter time.Duration) bool {
-	return time.Since(t.CreatedAt) >= resetAfter
-}
-
-type RateLimiter interface {
-	Acquire() (*Token, error)
-	Release(*Token)
-}
-
-type Config struct {
-	// Limit determines how many rate limit tokens can be active at a time
-	Limit int
-	// Throttle is the min time between requests for a Throttle Rate Limiter
-	Throttle time.Duration
-	// TokenResetsAfter is the maximum amount of time a token can live before being
-	// forcefully released - if set to zero time then the token may live forever
-	TokenResetsAfter time.Duration
-}
+// MaxInt holds the maximum int value
+const MaxInt = int(MaxUint >> 1)
 
 type Manager struct {
 	errorChan    chan error
@@ -73,6 +34,17 @@ func NewManager(conf *Config) *Manager {
 		limit:        conf.Limit,
 		makeToken:    NewToken,
 	}
+
+	// If limit is not defined, then default to max value
+	if m.limit <= 0 {
+		m.limit = MaxInt
+	}
+
+	// If the config TokenResetsAfter value exists, then run the reset task
+	if conf.TokenResetsAfter > 0 {
+		m.runResetTokenTask(conf.TokenResetsAfter)
+	}
+
 	return m
 }
 
@@ -147,6 +119,11 @@ func (m *Manager) releaseToken(token *Token) {
 		return
 	}
 
+	if !token.IsExpired() {
+		log.Printf("unable to relase token %s - has not expired", token)
+		return
+	}
+
 	// Delete from map
 	delete(m.activeTokens, token.ID)
 
@@ -154,6 +131,16 @@ func (m *Manager) releaseToken(token *Token) {
 	if m.awaitingToken() {
 		m.decNeedToken()
 		go m.tryGenerateToken()
+	}
+}
+
+func (m *Manager) releaseExpiredTokens() {
+	for _, token := range m.activeTokens {
+		if token.IsExpired() {
+			go func(t *Token) {
+				m.releaseChan <- t
+			}(token)
+		}
 	}
 }
 
@@ -170,29 +157,4 @@ func (m *Manager) runResetTokenTask(resetAfter time.Duration) {
 			}
 		}
 	}()
-}
-
-// NewMaxConcurrencyRateLimiter returns a max concurrency rate limiter
-func NewMaxConcurrencyRateLimiter(conf *Config) (RateLimiter, error) {
-	if conf.Limit <= 0 {
-		return nil, ErrInvalidLimit
-	}
-
-	m := NewManager(conf)
-	// max concurrency await function
-	await := func() {
-		go func() {
-			for {
-				select {
-				case <-m.inChan:
-					m.tryGenerateToken()
-				case token := <-m.releaseChan:
-					m.releaseToken(token)
-				}
-			}
-		}()
-	}
-
-	await()
-	return m, nil
 }
