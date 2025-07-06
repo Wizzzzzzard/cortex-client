@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v2"
 )
@@ -20,6 +21,23 @@ type PrometheusResponse struct {
 type QueryData struct {
 	Query    string
 	Backends []string
+}
+
+type PrometheusQueryJob struct {
+	BackendURL string
+	Query      string
+}
+
+func prometheusQueryWorker(jobs <-chan PrometheusQueryJob, results chan<- *PrometheusResponse, wg *sync.WaitGroup) {
+	for job := range jobs {
+		resp, err := QueryPrometheus(job.BackendURL, job.Query)
+		if err != nil {
+			log.Printf("error querying backend %s: %v", job.BackendURL, err)
+			continue
+		}
+		results <- resp
+		wg.Done()
+	}
 }
 
 // ReadBackendFile reads a YAML file with prometheus_backends as a list
@@ -67,25 +85,34 @@ func MergePrometheusQueries(data QueryData) ([]byte, error) {
 		Status string            `json:"status"`
 		Data   []json.RawMessage `json:"data"`
 	}
-	merged.Status = "success"
-	ch := make(chan *PrometheusResponse, len(data.Backends))
 
+	merged.Status = "success"
+	numWorkers := 5
+
+	jobs := make(chan PrometheusQueryJob, len(data.Backends))
+	results := make(chan *PrometheusResponse, len(data.Backends))
+	var wg sync.WaitGroup
+
+	for range numWorkers {
+		go prometheusQueryWorker(jobs, results, &wg)
+	}
+
+	wg.Add(len(data.Backends))
 	for _, backend := range data.Backends {
 		if backend == "" {
 			continue
 		}
-		go func() {
-			resp, err := QueryPrometheus(backend, data.Query)
-			if err != nil {
-				log.Fatalf("error querying backend %s: %v", backend, err)
-			}
-			ch <- resp
-		}()
-
-		for range data.Backends {
-			resp := <-ch
-			merged.Data = append(merged.Data, resp.Data)
+		jobs <- PrometheusQueryJob{
+			BackendURL: backend,
+			Query:      data.Query,
 		}
+	}
+	close(jobs)
+	wg.Wait()
+
+	for range data.Backends {
+		resp := <-results
+		merged.Data = append(merged.Data, resp.Data)
 	}
 	return json.MarshalIndent(merged, "", "  ")
 }
