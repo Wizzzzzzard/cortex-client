@@ -14,7 +14,7 @@ func RunCLI(args []string) int {
 }
 
 // RunCLIWithMergeFunc allows injecting a merge function for testing
-func RunCLIWithMergeFunc(args []string, mergeFunc func([]string, string) ([]byte, error)) int {
+func RunCLIWithMergeFunc(args []string, mergeFunc func(client.QueryData) ([]byte, error)) int {
 	flags := flag.NewFlagSet("cortex-client", flag.ContinueOnError)
 	backends := flags.String("backends", "", "Comma-separated list of Prometheus backend URLs")
 	backendsFile := flags.String("backends-file", "", "Path to file with Prometheus backend URLs (one per line)")
@@ -44,7 +44,12 @@ func RunCLIWithMergeFunc(args []string, mergeFunc func([]string, string) ([]byte
 		return 1
 	}
 
-	b, err := mergeFunc(backendList, *query)
+	queryData := client.QueryData{
+		Query:    *query,
+		Backends: backendList,
+	}
+
+	b, err := mergeFunc(queryData)
 	if err != nil {
 		fmt.Printf("Error merging queries: %v\n", err)
 		return 1

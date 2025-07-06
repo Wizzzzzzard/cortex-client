@@ -16,6 +16,11 @@ type PrometheusResponse struct {
 	Data   json.RawMessage `json:"data"`
 }
 
+type QueryData struct {
+	Query    string
+	Backends []string
+}
+
 // ReadBackendFile reads a YAML file with prometheus_backends as a list
 func ReadBackendFile(path string) ([]string, error) {
 	data, err := os.ReadFile(path)
@@ -56,17 +61,18 @@ func QueryPrometheus(backendURL, query string) (*PrometheusResponse, error) {
 }
 
 // MergePrometheusQueries queries all backends and merges the results
-func MergePrometheusQueries(backends []string, query string) ([]byte, error) {
+func MergePrometheusQueries(data QueryData) ([]byte, error) {
 	var merged struct {
 		Status string            `json:"status"`
 		Data   []json.RawMessage `json:"data"`
 	}
 	merged.Status = "success"
-	for _, backend := range backends {
+
+	for _, backend := range data.Backends {
 		if backend == "" {
 			continue
 		}
-		resp, err := QueryPrometheus(backend, query)
+		resp, err := QueryPrometheus(backend, data.Query)
 		if err != nil {
 			continue
 		}

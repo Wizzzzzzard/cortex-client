@@ -48,8 +48,8 @@ func TestReadBackendFile_Error(t *testing.T) {
 	}
 }
 
-func stubMergePrometheusQueries(output string, err error) func([]string, string) ([]byte, error) {
-	return func(_ []string, _ string) ([]byte, error) {
+func stubMergePrometheusQueries(output string, err error) func(client.QueryData) ([]byte, error) {
+	return func(_ client.QueryData) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
