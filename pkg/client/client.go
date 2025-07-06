@@ -61,15 +61,31 @@ func MergePrometheusQueries(backends []string, query string) ([]byte, error) {
 		Status string            `json:"status"`
 		Data   []json.RawMessage `json:"data"`
 	}
+	respChan := make(chan PrometheusResponse)
+
 	merged.Status = "success"
 	for _, backend := range backends {
 		if backend == "" {
 			continue
 		}
-		resp, err := QueryPrometheus(backend, query)
-		if err != nil {
-			continue
-		}
+		go func(backend string) {
+
+			resp, err := QueryPrometheus(backend, query)
+			if err != nil {
+				fmt.Printf("Error querying backend %s: %v\n", backend, err)
+				resp = &PrometheusResponse{
+					Status: "error",
+					Data:   nil,
+				}
+			}
+			respChan <- *resp
+		}(backend)
+	}
+
+	close(respChan)
+
+	for resp := range respChan {
+
 		merged.Data = append(merged.Data, resp.Data)
 	}
 	return json.MarshalIndent(merged, "", "  ")
