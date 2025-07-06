@@ -9,7 +9,9 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/cortex-client/pkg/ratelimiter"
 	"gopkg.in/yaml.v2"
 )
 
@@ -28,8 +30,13 @@ type PrometheusQueryJob struct {
 	Query      string
 }
 
-func prometheusQueryWorker(jobs <-chan PrometheusQueryJob, results chan<- *PrometheusResponse, wg *sync.WaitGroup) {
+func prometheusQueryWorker(jobs <-chan PrometheusQueryJob, results chan<- *PrometheusResponse, wg *sync.WaitGroup, r ratelimiter.RateLimiter) {
 	for job := range jobs {
+		token, err := r.Acquire()
+		fmt.Printf("Rate Limit Token %s acquired at %s...\n", token.ID, time.Now().UTC())
+		if err != nil {
+			panic(err)
+		}
 		resp, err := QueryPrometheus(job.BackendURL, job.Query)
 		if err != nil {
 			log.Printf("error querying backend %s: %v", job.BackendURL, err)
@@ -86,6 +93,14 @@ func MergePrometheusQueries(data QueryData) ([]byte, error) {
 		Data   []json.RawMessage `json:"data"`
 	}
 
+	r, err := ratelimiter.NewMaxConcurrencyRateLimiter(&ratelimiter.Config{
+		Limit:            100,
+		TokenResetsAfter: 10 * time.Second,
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	merged.Status = "success"
 	numWorkers := 5
 
@@ -94,7 +109,7 @@ func MergePrometheusQueries(data QueryData) ([]byte, error) {
 	var wg sync.WaitGroup
 
 	for range numWorkers {
-		go prometheusQueryWorker(jobs, results, &wg)
+		go prometheusQueryWorker(jobs, results, &wg, r)
 	}
 
 	wg.Add(len(data.Backends))
