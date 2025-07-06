@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"testing"
 )
@@ -23,6 +24,43 @@ func TestSplitAndTrim(t *testing.T) {
 		if !reflect.DeepEqual(result, c.expected) {
 			t.Errorf("SplitAndTrim(%q) = %v, want %v", c.input, result, c.expected)
 		}
+	}
+}
+
+func TestReadBackendsFile(t *testing.T) {
+	// Create a temp YAML file
+	file, err := os.CreateTemp("", "backends-*.yaml")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer func() {
+		if removeErr := os.Remove(file.Name()); removeErr != nil {
+			t.Fatalf("failed to remove temp file: %v", removeErr)
+		}
+	}()
+	content := []byte("prometheus_backends:\n  - http://localhost:9090\n  - http://localhost:9091\n")
+	if _, err := file.Write(content); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			t.Fatalf("failed to close temp file: %v", closeErr)
+		}
+	}()
+
+	backends, err := ReadBackendFile(file.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(backends) != 2 || backends[0] != "http://localhost:9090" || backends[1] != "http://localhost:9091" {
+		t.Errorf("unexpected backends: %v", backends)
+	}
+}
+
+func TestReadBackendFile_Error(t *testing.T) {
+	_, err := ReadBackendFile("nonexistent.yaml")
+	if err == nil {
+		t.Error("expected error for nonexistent file, got nil")
 	}
 }
 
