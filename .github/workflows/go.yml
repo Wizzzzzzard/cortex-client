@@ -20,10 +20,6 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
-
-      - name: Install dependencies
-        run: go get .
-
       - name: Verify dependencies
         run: go mod verify
 
