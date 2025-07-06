@@ -23,3 +23,4 @@ func TestRateLimiterAcquire(t *testing.T) {
 			t.Fatal("expected a non-empty token ID")
 		}
 	})
+}
