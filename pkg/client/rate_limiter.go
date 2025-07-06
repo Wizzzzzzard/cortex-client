@@ -32,6 +32,10 @@ func NewToken() *Token {
 	}
 }
 
+func (t *Token) NeedReset(resetAfter time.Duration) bool {
+	return time.Since(t.CreatedAt) >= resetAfter
+}
+
 type RateLimiter interface {
 	Acquire() (*Token, error)
 	Release(*Token)
@@ -151,6 +155,21 @@ func (m *Manager) releaseToken(token *Token) {
 		m.decNeedToken()
 		go m.tryGenerateToken()
 	}
+}
+
+func (m *Manager) runResetTokenTask(resetAfter time.Duration) {
+	go func() {
+		ticker := time.NewTicker(resetAfter)
+		for range ticker.C {
+			for _, token := range m.activeTokens {
+				if token.NeedReset(resetAfter) {
+					go func(t *Token) {
+						m.releaseChan <- t
+					}(token)
+				}
+			}
+		}
+	}()
 }
 
 // NewMaxConcurrencyRateLimiter returns a max concurrency rate limiter
