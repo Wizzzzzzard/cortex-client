@@ -64,8 +64,16 @@ func captureOutput(f func()) (string, string) {
 	}()
 	outC := make(chan string)
 	errC := make(chan string)
-	go func() { var buf bytes.Buffer; io.Copy(&buf, rOut); outC <- buf.String() }()
-	go func() { var buf bytes.Buffer; io.Copy(&buf, rErr); errC <- buf.String() }()
+	go func() {
+		var buf bytes.Buffer
+		io.Copy(&buf, rOut)
+		outC <- buf.String()
+	}()
+	go func() {
+		var buf bytes.Buffer
+		io.Copy(&buf, rErr)
+		errC <- buf.String()
+	}()
 	f()
 	wOut.Close()
 	wErr.Close()
@@ -110,18 +118,26 @@ func TestRunCLI_ValidBackendsFlag(t *testing.T) {
 }
 
 func TestRunCLI_ValidBackendsFile(t *testing.T) {
-	f, err := os.CreateTemp("", "backends-*.yaml")
+	file, err := os.CreateTemp("", "backends-*.yaml")
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(f.Name())
+	defer func() {
+		if removeErr := os.Remove(file.Name()); removeErr != nil {
+			t.Fatalf("failed to remove temp file: %v", removeErr)
+		}
+	}()
 	content := []byte("prometheus_backends:\n  - http://localhost:9090\n")
-	if _, err := f.Write(content); err != nil {
+	if _, err := file.Write(content); err != nil {
 		t.Fatalf("failed to write temp file: %v", err)
 	}
-	f.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			t.Fatalf("failed to close temp file: %v", closeErr)
+		}
+	}()
 	out, _ := captureOutput(func() {
-		code := RunCLIWithMergeFunc([]string{"--backends-file=" + f.Name(), "--query=up"}, stubMergePrometheusQueries("{\"status\":\"success\"}", nil))
+		code := RunCLIWithMergeFunc([]string{"--backends-file=" + file.Name(), "--query=up"}, stubMergePrometheusQueries("{\"status\":\"success\"}", nil))
 		if code != 0 {
 			t.Errorf("expected exit code 0, got %d", code)
 		}
