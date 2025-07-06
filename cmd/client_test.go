@@ -6,16 +6,28 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"github.com/cortex-client/pkg/utilities"
 )
 
 func TestReadBackendsFile(t *testing.T) {
 	// Create a temp YAML file
-	file, err := utilities.CreateTempFile("", "backends-*.yaml", []byte("prometheus_backends:\n  - http://localhost:9090\n  - http://localhost:9091\n"))
+	file, err := os.CreateTemp("", "backends-*.yaml")
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
+	defer func() {
+		if removeErr := os.Remove(file.Name()); removeErr != nil {
+			t.Fatalf("failed to remove temp file: %v", removeErr)
+		}
+	}()
+	content := []byte("prometheus_backends:\n  - http://localhost:9090\n  - http://localhost:9091\n")
+	if _, err := file.Write(content); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			t.Fatalf("failed to close temp file: %v", closeErr)
+		}
+	}()
 
 	backends, err := readBackendsFile(file.Name())
 	if err != nil {
