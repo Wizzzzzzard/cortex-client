@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -67,19 +68,24 @@ func MergePrometheusQueries(data QueryData) ([]byte, error) {
 		Data   []json.RawMessage `json:"data"`
 	}
 	merged.Status = "success"
+	ch := make(chan *PrometheusResponse, len(data.Backends))
 
 	for _, backend := range data.Backends {
-		query := data.Query
 		if backend == "" {
 			continue
 		}
-		go func(backend string, query string) {
-			resp, err := QueryPrometheus(backend, query)
+		go func() {
+			resp, err := QueryPrometheus(backend, data.Query)
 			if err != nil {
-				return
+				log.Fatalf("error querying backend %s: %v", backend, err)
 			}
+			ch <- resp
+		}()
+
+		for range data.Backends {
+			resp := <-ch
 			merged.Data = append(merged.Data, resp.Data)
-		}(backend, query)
+		}
 	}
 	return json.MarshalIndent(merged, "", "  ")
 }
