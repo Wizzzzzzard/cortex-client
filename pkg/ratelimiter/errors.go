@@ -4,8 +4,8 @@ import "errors"
 
 // Errors used throughout the codebase
 var (
-	ErrInvalidLimit            = errors.New("Limit must be greater than zero")
-	ErrInvalidInterval         = errors.New("Interval must be greater than zero")
-	ErrInvalidThrottleDuration = errors.New("Throttle duration must be greater than zero")
-	ErrTokenFactoryNotDefined  = errors.New("Token factory must be defined")
+	ErrInvalidLimit            = errors.New("limit must be greater than zero")
+	ErrInvalidInterval         = errors.New("interval must be greater than zero")
+	ErrInvalidThrottleDuration = errors.New("throttle duration must be greater than zero")
+	ErrTokenFactoryNotDefined  = errors.New("token factory must be defined")
 )
