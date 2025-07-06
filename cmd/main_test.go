@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/cortex-client/pkg/client"
 )
 
 func TestReadBackendsFile(t *testing.T) {
@@ -30,7 +32,7 @@ func TestReadBackendsFile(t *testing.T) {
 		}
 	}()
 
-	backends, err := readBackendsFile(file.Name())
+	backends, err := client.ReadBackendFile(file.Name())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -39,8 +41,8 @@ func TestReadBackendsFile(t *testing.T) {
 	}
 }
 
-func TestReadBackendsFile_Error(t *testing.T) {
-	_, err := readBackendsFile("nonexistent.yaml")
+func TestReadBackendFile_Error(t *testing.T) {
+	_, err := client.ReadBackendFile("nonexistent.yaml")
 	if err == nil {
 		t.Error("expected error for nonexistent file, got nil")
 	}
@@ -82,16 +84,14 @@ func captureOutput(f func()) (string, string) {
 		errC <- buf.String()
 	}()
 	f()
-	defer func() {
-		if closeErr := wOut.Close(); closeErr != nil {
-			log.Fatalf("failed to close stdout: %v", closeErr)
-		}
-	}()
-	defer func() {
-		if closeErr := wErr.Close(); closeErr != nil {
-			log.Fatalf("failed to close stderr: %v", closeErr)
-		}
-	}()
+	closeWoutErr := wOut.Close()
+	if closeWoutErr != nil {
+		log.Fatalf("failed to close stdout: %v", closeWoutErr)
+	}
+	closeWerrErr := wErr.Close()
+	if closeWerrErr != nil {
+		log.Fatalf("failed to close stderr: %v", closeWerrErr)
+	}
 	out, err := <-outC, <-errC
 	return out, err
 }
