@@ -10,7 +10,6 @@ import (
 
 func DoWork(r RateLimiter, workerCount int) {
 	var wg sync.WaitGroup
-	rand.Seed(time.Now().UnixNano())
 
 	doWork := func(id int) {
 		// Acquire a rate limit token
