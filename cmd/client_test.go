@@ -6,22 +6,18 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/cortex-client/pkg/utilities"
 )
 
 func TestReadBackendsFile(t *testing.T) {
 	// Create a temp YAML file
-	f, err := os.CreateTemp("", "backends-*.yaml")
+	file, err := utilities.CreateTempFile("", "backends-*.yaml", []byte("prometheus_backends:\n  - http://localhost:9090\n  - http://localhost:9091\n"))
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(f.Name())
-	content := []byte("prometheus_backends:\n  - http://localhost:9090\n  - http://localhost:9091\n")
-	if _, err := f.Write(content); err != nil {
-		t.Fatalf("failed to write temp file: %v", err)
-	}
-	f.Close()
 
-	backends, err := readBackendsFile(f.Name())
+	backends, err := readBackendsFile(file.Name())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -59,7 +55,8 @@ func captureOutput(f func()) (string, string) {
 	go func() { var buf bytes.Buffer; io.Copy(&buf, rOut); outC <- buf.String() }()
 	go func() { var buf bytes.Buffer; io.Copy(&buf, rErr); errC <- buf.String() }()
 	f()
-	wOut.Close(); wErr.Close()
+	wOut.Close()
+	wErr.Close()
 	out, err := <-outC, <-errC
 	return out, err
 }
