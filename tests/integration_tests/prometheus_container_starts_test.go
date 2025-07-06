@@ -87,7 +87,12 @@ func TestPrometheusAPI(t *testing.T) {
 	// Wait a bit for Prometheus to be fully ready
 	time.Sleep(2 * time.Second)
 
-	output, err := client.MergePrometheusQueries(backendURLs, "up")
+	testQueryData := client.QueryData{
+		Query:    "up",
+		Backends: backendURLs,
+	}
+
+	output, err := client.MergePrometheusQueries(testQueryData)
 	if err != nil {
 		t.Fatalf("Error querying Prometheus containers: %v", err)
 	}

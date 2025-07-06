@@ -37,9 +37,11 @@ func TestClientHitsMockPrometheus(t *testing.T) {
 	defer ts.Close()
 
 	t.Run("query up returns success", func(t *testing.T) {
-		backends := []string{ts.URL}
-		query := "up"
-		output, err := client.MergePrometheusQueries(backends, query)
+		testQueryData := client.QueryData{
+			Query:    "up",
+			Backends: []string{ts.URL},
+		}
+		output, err := client.MergePrometheusQueries(testQueryData)
 
 		t.Logf("Client output:\n%s", string(output))
 

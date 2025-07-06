@@ -34,7 +34,11 @@ func TestQueryPrometheus_Error(t *testing.T) {
 }
 
 func TestMergePrometheusQueries_EmptyBackends(t *testing.T) {
-	output, err := MergePrometheusQueries([]string{"", "   "}, "up")
+	testQueryData := QueryData{
+		Query:    "up",
+		Backends: []string{},
+	}
+	output, err := MergePrometheusQueries(testQueryData)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
