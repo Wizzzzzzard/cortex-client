@@ -69,14 +69,17 @@ func MergePrometheusQueries(data QueryData) ([]byte, error) {
 	merged.Status = "success"
 
 	for _, backend := range data.Backends {
+		query := data.Query
 		if backend == "" {
 			continue
 		}
-		resp, err := QueryPrometheus(backend, data.Query)
-		if err != nil {
-			continue
-		}
-		merged.Data = append(merged.Data, resp.Data)
+		go func(backend string, query string) {
+			resp, err := QueryPrometheus(backend, query)
+			if err != nil {
+				return
+			}
+			merged.Data = append(merged.Data, resp.Data)
+		}(backend, query)
 	}
 	return json.MarshalIndent(merged, "", "  ")
 }
