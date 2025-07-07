@@ -7,12 +7,12 @@ PROM2_PORT=9091
 PROM_IMAGE="prom/prometheus:main"
 
 start() {
-	echo "Starting Prometheus instance 1 in Docker on port $PROM1_PORT..."
-	CID1=$(docker run -d --rm -p $PROM1_PORT:9090 $PROM_IMAGE)
+	echo "Starting Prometheus instance 1 in Podman on port $PROM1_PORT..."
+	CID1=$(podman run -d --rm -p $PROM1_PORT:9090 $PROM_IMAGE)
 	echo $CID1 > prometheus1.cid
 
-	echo "Starting Prometheus instance 2 in Docker on port $PROM2_PORT..."
-	CID2=$(docker run -d --rm -p $PROM2_PORT:9090 $PROM_IMAGE)
+	echo "Starting Prometheus instance 2 in Podman on port $PROM2_PORT..."
+	CID2=$(podman run -d --rm -p $PROM2_PORT:9090 $PROM_IMAGE)
 	echo $CID2 > prometheus2.cid
 
 	sleep 2
@@ -28,7 +28,7 @@ stop() {
 			cid=$(cat "$cidfile")
 			if [ -n "$cid" ]; then
 				echo "Stopping Prometheus container $cid..."
-				docker stop "$cid" || true
+				podman stop "$cid" || true
 				echo "Stopped."
 			else
 				echo "No container ID in $cidfile."
