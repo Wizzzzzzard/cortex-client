@@ -1,4 +1,4 @@
-package tests
+package container
 
 import (
 	"context"
@@ -36,7 +36,7 @@ func TestPrometheusAPI(t *testing.T) {
 		portSpec := nat.Port(prom.port + "/tcp")
 		// Use a static prometheus.yml from test resources, one per port
 		configFile := fmt.Sprintf("prometheus_%s.yml", prom.port)
-		configPath, err := filepath.Abs(filepath.Join("..", "resources", configFile))
+		configPath, err := filepath.Abs(filepath.Join("..", "test_resources", configFile))
 		if err != nil {
 			t.Fatalf("failed to get absolute path for %s: %v", configFile, err)
 		}
